@@ -89,32 +89,14 @@ impl TextRenderer {
         // Shape the text
         self.buffer.shape_until_scroll(&mut self.font_system, false);
 
-        // Calculate max line width and total text height
-        let mut max_line_width = 0.0f32;
-        let mut max_line_y = 0.0f32;
-        for run in self.buffer.layout_runs() {
-            let mut line_width = 0.0f32;
-            for glyph in run.glyphs.iter() {
-                line_width = line_width.max(glyph.x + glyph.w);
-            }
-            max_line_width = max_line_width.max(line_width);
-            max_line_y = max_line_y.max(run.line_y);
-        }
+        // First line is centered vertically (same position whether 1 or multiple lines)
+        let y_offset = ((height as f32 - self.font_size) / 2.0) as i32;
 
-        // Total text height = last line baseline + approximate descent
-        let total_text_height = max_line_y + self.font_size * 0.3;
-
-        // Center text block vertically
-        let y_offset = ((height as f32 - total_text_height) / 2.0).max(0.0) as i32;
-
-        // Offset for right-alignment
-        let x_offset = (width as f32 - max_line_width - 15.0).max(5.0) as i32;
-
-        // Render shadow first
-        self.render_glyphs(canvas, width, height, x_offset + 2, y_offset + 2, 0, 0, 0, 160);
+        // Render shadow first (each line right-aligned individually)
+        self.render_glyphs(canvas, width, height, y_offset + 2, 2, 0, 0, 0, 160);
 
         // Render main text
-        self.render_glyphs(canvas, width, height, x_offset, y_offset, 255, 255, 255, 255);
+        self.render_glyphs(canvas, width, height, y_offset, 0, 255, 255, 255, 255);
     }
 
     fn render_glyphs(
@@ -122,16 +104,28 @@ impl TextRenderer {
         canvas: &mut [u8],
         width: u32,
         height: u32,
-        x_offset: i32,
         y_offset: i32,
+        shadow_offset: i32,
         r: u8,
         g: u8,
         b: u8,
         base_alpha: u8,
     ) {
+        // Get first line's line_y to use as baseline offset
+        let first_line_y = self.buffer.layout_runs().next().map(|r| r.line_y).unwrap_or(0.0);
+
         for run in self.buffer.layout_runs() {
-            // Use run.line_y for proper vertical positioning of each line
-            let line_y = run.line_y as i32 + y_offset;
+            // Calculate this line's width for right-alignment
+            let mut line_width = 0.0f32;
+            for glyph in run.glyphs.iter() {
+                line_width = line_width.max(glyph.x + glyph.w);
+            }
+
+            // Right-align this line individually
+            let x_offset = (width as f32 - line_width - 15.0).max(5.0) as i32 + shadow_offset;
+
+            // Position first line at y_offset, subsequent lines below
+            let line_y = y_offset + (run.line_y - first_line_y) as i32 + shadow_offset;
 
             for glyph in run.glyphs.iter() {
                 let physical_glyph = glyph.physical((0.0, 0.0), 1.0);
@@ -141,7 +135,7 @@ impl TextRenderer {
                 };
 
                 let glyph_x = x_offset + physical_glyph.x + image.placement.left;
-                let glyph_y = line_y + physical_glyph.y - image.placement.top;
+                let glyph_y = line_y + physical_glyph.y - image.placement.top + self.font_size as i32;
 
                 for py in 0..image.placement.height as i32 {
                     for px in 0..image.placement.width as i32 {
