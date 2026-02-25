@@ -47,7 +47,7 @@ fn get_env_f32(name: &str, default: f32) -> f32 {
 }
 
 fn overlay_width() -> u32 { get_env_u32("LYRICS_WIDTH", 600) }
-fn overlay_height() -> u32 { get_env_u32("LYRICS_HEIGHT", 50) }
+fn overlay_height() -> u32 { get_env_u32("LYRICS_HEIGHT", 80) }
 fn top_margin() -> i32 { get_env_i32("LYRICS_TOP_MARGIN", 50) }  // Higher default
 fn right_margin() -> i32 { get_env_i32("LYRICS_RIGHT_MARGIN", 10) }
 fn font_size() -> f32 { get_env_f32("LYRICS_FONT_SIZE", 22.0) }
@@ -89,17 +89,26 @@ impl TextRenderer {
         // Shape the text
         self.buffer.shape_until_scroll(&mut self.font_system, false);
 
-        // Calculate text width for right-alignment
-        let mut total_width = 0.0f32;
+        // Calculate max line width and total text height
+        let mut max_line_width = 0.0f32;
+        let mut max_line_y = 0.0f32;
         for run in self.buffer.layout_runs() {
+            let mut line_width = 0.0f32;
             for glyph in run.glyphs.iter() {
-                total_width = total_width.max(glyph.x + glyph.w);
+                line_width = line_width.max(glyph.x + glyph.w);
             }
+            max_line_width = max_line_width.max(line_width);
+            max_line_y = max_line_y.max(run.line_y);
         }
 
+        // Total text height = last line baseline + approximate descent
+        let total_text_height = max_line_y + self.font_size * 0.3;
+
+        // Center text block vertically
+        let y_offset = ((height as f32 - total_text_height) / 2.0).max(0.0) as i32;
+
         // Offset for right-alignment
-        let x_offset = (width as f32 - total_width - 15.0).max(5.0) as i32;
-        let y_offset = ((height as f32 - self.font_size) / 2.0) as i32;
+        let x_offset = (width as f32 - max_line_width - 15.0).max(5.0) as i32;
 
         // Render shadow first
         self.render_glyphs(canvas, width, height, x_offset + 2, y_offset + 2, 0, 0, 0, 160);
@@ -121,6 +130,9 @@ impl TextRenderer {
         base_alpha: u8,
     ) {
         for run in self.buffer.layout_runs() {
+            // Use run.line_y for proper vertical positioning of each line
+            let line_y = run.line_y as i32 + y_offset;
+
             for glyph in run.glyphs.iter() {
                 let physical_glyph = glyph.physical((0.0, 0.0), 1.0);
 
@@ -129,7 +141,7 @@ impl TextRenderer {
                 };
 
                 let glyph_x = x_offset + physical_glyph.x + image.placement.left;
-                let glyph_y = y_offset + physical_glyph.y - image.placement.top + self.font_size as i32;
+                let glyph_y = line_y + physical_glyph.y - image.placement.top;
 
                 for py in 0..image.placement.height as i32 {
                     for px in 0..image.placement.width as i32 {
