@@ -58,7 +58,7 @@
           topMargin ? 50,            # Distance from top of screen
           rightMargin ? 10,          # Distance from right edge
           width ? 600,               # Overlay width
-          height ? 50,               # Overlay height
+          height ? 120,              # Overlay height (120 for multi-line support)
           fontSize ? 22.0,           # Font size
           allowArtistMismatch ? false, # Use lyrics from different artist
         }: let
