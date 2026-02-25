@@ -47,7 +47,7 @@ fn get_env_f32(name: &str, default: f32) -> f32 {
 }
 
 fn overlay_width() -> u32 { get_env_u32("LYRICS_WIDTH", 600) }
-fn overlay_height() -> u32 { get_env_u32("LYRICS_HEIGHT", 80) }
+fn overlay_height() -> u32 { get_env_u32("LYRICS_HEIGHT", 120) }
 fn top_margin() -> i32 { get_env_i32("LYRICS_TOP_MARGIN", 50) }  // Higher default
 fn right_margin() -> i32 { get_env_i32("LYRICS_RIGHT_MARGIN", 10) }
 fn font_size() -> f32 { get_env_f32("LYRICS_FONT_SIZE", 22.0) }
@@ -89,8 +89,10 @@ impl TextRenderer {
         // Shape the text
         self.buffer.shape_until_scroll(&mut self.font_system, false);
 
-        // First line is centered vertically (same position whether 1 or multiple lines)
-        let y_offset = ((height as f32 - self.font_size) / 2.0) as i32;
+        // First line position: always centered as if height were 50px (original design)
+        // This keeps first line at same position regardless of actual overlay height
+        let original_height = 50.0;
+        let y_offset = ((original_height - self.font_size) / 2.0) as i32;
 
         // Render shadow first (each line right-aligned individually)
         self.render_glyphs(canvas, width, height, y_offset + 2, 2, 0, 0, 0, 160);
